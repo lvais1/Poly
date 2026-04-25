@@ -10,6 +10,9 @@ poly.db
 poly.db-shm
 poly.db-wal
 
+# Session secret key (must not be shared)
+.secret_key
+
 # VS Code
 .vscode/
 

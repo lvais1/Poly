@@ -1,10 +1,13 @@
+import secrets
 import threading
 import time
 import logging
+import uuid as _uuid
 import webbrowser
+from pathlib import Path
 
 import requests as _requests
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, session
 
 import database as db
 import fetcher
@@ -18,6 +21,26 @@ log = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+# Stable secret key — generated once, persisted to .secret_key so sessions
+# survive app restarts.
+_KEY_FILE = Path(__file__).parent / ".secret_key"
+if _KEY_FILE.exists():
+    app.secret_key = _KEY_FILE.read_text().strip()
+else:
+    app.secret_key = secrets.token_hex(32)
+    _KEY_FILE.write_text(app.secret_key)
+
+app.config["PERMANENT_SESSION_LIFETIME"] = 60 * 60 * 24 * 365  # 1 year
+
+
+def get_session_id() -> str:
+    """Return (and create if needed) the unique ID for this browser session."""
+    if "uid" not in session:
+        session["uid"] = str(_uuid.uuid4())
+        session.permanent = True
+    return session["uid"]
+
+
 # ── Background scheduler ───────────────────────────────────────────────────
 
 _scheduler_started = False
@@ -25,7 +48,6 @@ _scheduler_lock    = threading.Lock()
 
 
 def _scheduler_loop():
-    # On first run, fix any traders with missing profiles
     try:
         fetcher.refresh_missing_profiles()
     except Exception:
@@ -61,7 +83,7 @@ def index():
 
 @app.get("/api/traders")
 def api_list_traders():
-    return jsonify(db.get_all_traders())
+    return jsonify(db.get_all_traders(get_session_id()))
 
 
 @app.post("/api/traders")
@@ -72,9 +94,10 @@ def api_add_trader():
     if not wallet.startswith("0x") or len(wallet) != 42:
         return jsonify({"error": "Invalid wallet address — must be 0x followed by 40 hex chars"}), 400
 
-    created = db.add_trader(wallet)
+    sid     = get_session_id()
+    created = db.add_trader(wallet, sid)
     if created:
-        recs.invalidate()
+        recs.invalidate(sid)
         threading.Thread(
             target=fetcher.backfill_trader,
             args=(wallet,),
@@ -89,26 +112,27 @@ def api_add_trader():
 @app.delete("/api/traders/<wallet>")
 def api_remove_trader(wallet):
     wallet = wallet.strip().lower()
-    db.remove_trader(wallet)
+    db.remove_trader(wallet, get_session_id())
     return jsonify({"status": "removed", "wallet": wallet})
 
 
 @app.get("/api/trades")
 def api_get_trades():
+    sid    = get_session_id()
     wallet = (request.args.get("wallet") or "").strip().lower() or None
     limit  = min(int(request.args.get("limit", 500)), 2000)
-    return jsonify(db.get_trades(wallet=wallet, limit=limit))
+    return jsonify(db.get_trades(wallet=wallet, session_id=sid, limit=limit))
 
 
 @app.get("/api/stats")
 def api_get_stats():
-    return jsonify(db.get_all_stats())
+    return jsonify(db.get_all_stats(get_session_id()))
 
 
 @app.get("/api/recommendations")
 def api_recommendations():
     shuffle = request.args.get("shuffle") == "1"
-    return jsonify(recs.get_recommendations(shuffle=shuffle))
+    return jsonify(recs.get_recommendations(get_session_id(), shuffle=shuffle))
 
 
 @app.get("/api/positions/<wallet>")

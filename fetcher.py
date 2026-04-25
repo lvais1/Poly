@@ -162,9 +162,8 @@ def incremental_fetch(wallet: str) -> int:
 
 
 def refresh_missing_profiles():
-    """Fetch profiles for traders whose name or image is still empty."""
-    traders = db.get_all_traders()
-    for t in traders:
+    """Fetch profiles for wallets whose name or image is still empty."""
+    for t in db.get_all_unique_wallets():
         if t.get("name") and t.get("profile_image"):
             continue
         wallet = t["wallet"]
@@ -174,7 +173,6 @@ def refresh_missing_profiles():
                 db.update_trader_profile(wallet, profile)
                 log.info("Late profile fetch for %s: %s", wallet,
                          profile.get("name") or profile.get("pseudonym") or "(no name)")
-            # Also try extracting from a trade row
             page = fetch_trades_page(wallet, offset=0)
             if page:
                 db.enrich_trader_profile(wallet, _profile_from_raw(page[0]))
@@ -183,9 +181,7 @@ def refresh_missing_profiles():
 
 
 def fetch_all_traders():
-    traders = db.get_all_traders()
-    for t in traders:
-        # Skip traders whose backfill hasn't completed yet
+    for t in db.get_all_unique_wallets():
         if t.get("last_fetched") is None:
             continue
         incremental_fetch(t["wallet"])

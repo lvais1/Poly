@@ -20,58 +20,59 @@ import requests
 
 import database as db
 
-HEADERS  = {"User-Agent": "PolyTracker/1.0"}
-CACHE_TTL = 300   # seconds between recomputes
+HEADERS   = {"User-Agent": "PolyTracker/1.0"}
+CACHE_TTL = 300   # seconds between recomputes per session
 log = logging.getLogger(__name__)
 
-_cache:    list  = []
-_cache_ts: float = 0.0
+# Per-session cache: session_id -> (results, timestamp)
+_cache: dict = {}
 _lock = threading.Lock()
 
 
 # ── Public API ──────────────────────────────────────────────────────────────
 
-def get_recommendations(shuffle: bool = False) -> list:
-    """Return cached recommendations, recomputing if stale."""
-    global _cache, _cache_ts
+def get_recommendations(session_id: str, shuffle: bool = False) -> list:
+    """Return cached recommendations for this session, recomputing if stale."""
     with _lock:
-        age = time.time() - _cache_ts
-        if _cache and age < CACHE_TTL and not shuffle:
-            return list(_cache)
+        if not shuffle and session_id in _cache:
+            results, ts = _cache[session_id]
+            if time.time() - ts < CACHE_TTL:
+                return list(results)
 
-    result = _compute(shuffle=shuffle)
+    result = _compute(session_id, shuffle=shuffle)
 
     if not shuffle:
         with _lock:
-            _cache    = result
-            _cache_ts = time.time()
+            _cache[session_id] = (result, time.time())
 
     return result
 
 
-def invalidate():
-    """Force recompute on next call (e.g. after a new trader is added)."""
-    global _cache_ts
+def invalidate(session_id: str = None):
+    """Force recompute on next call. Pass session_id=None to clear all."""
     with _lock:
-        _cache_ts = 0.0
+        if session_id:
+            _cache.pop(session_id, None)
+        else:
+            _cache.clear()
 
 
 # ── Engine ──────────────────────────────────────────────────────────────────
 
-def _compute(shuffle: bool = False) -> list:
+def _compute(session_id: str, shuffle: bool = False) -> list:
     import random as _random
 
-    tracked = {t["wallet"] for t in db.get_all_traders()}
+    tracked = {t["wallet"] for t in db.get_all_traders(session_id)}
     if not tracked:
         return []
 
-    slugs = db.get_recent_event_slugs(limit=30)
+    slugs = db.get_recent_event_slugs(session_id=session_id, limit=30)
     if not slugs:
         return []
 
-    candidates: dict[str, dict] = {}
-
     sample = _random.sample(slugs, min(12, len(slugs))) if shuffle and len(slugs) > 4 else slugs[:12]
+
+    candidates: dict[str, dict] = {}
 
     for slug in sample:
         try:
@@ -91,14 +92,14 @@ def _compute(shuffle: bool = False) -> list:
 
                 if w not in candidates:
                     candidates[w] = {
-                        "wallet":       w,
-                        "name":         trade.get("name")         or "",
-                        "pseudonym":    trade.get("pseudonym")    or "",
-                        "profileImage": trade.get("profileImage") or "",
-                        "bio":          trade.get("bio")          or "",
-                        "volume":       0.0,
-                        "trade_count":  0,
-                        "last_ts":      0,
+                        "wallet":         w,
+                        "name":           trade.get("name")         or "",
+                        "pseudonym":      trade.get("pseudonym")    or "",
+                        "profileImage":   trade.get("profileImage") or "",
+                        "bio":            trade.get("bio")          or "",
+                        "volume":         0.0,
+                        "trade_count":    0,
+                        "last_ts":        0,
                         "shared_markets": set(),
                     }
 
@@ -110,7 +111,6 @@ def _compute(shuffle: bool = False) -> list:
                 ts = int(float(trade.get("timestamp") or 0))
                 if ts > c["last_ts"]:
                     c["last_ts"] = ts
-                    # Keep the freshest profile snapshot
                     if trade.get("name"):         c["name"]         = trade["name"]
                     if trade.get("pseudonym"):    c["pseudonym"]    = trade["pseudonym"]
                     if trade.get("profileImage"): c["profileImage"] = trade["profileImage"]
@@ -144,6 +144,6 @@ def _compute(shuffle: bool = False) -> list:
         })
 
     results.sort(key=lambda x: x["score"], reverse=True)
-    log.info("Recommendations: %d candidates → returning top %d",
-             len(results), min(30, len(results)))
+    log.info("Recommendations [%s]: %d candidates → returning top %d",
+             session_id[:8], len(results), min(30, len(results)))
     return results[:30]

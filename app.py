@@ -107,7 +107,8 @@ def api_get_stats():
 
 @app.get("/api/recommendations")
 def api_recommendations():
-    return jsonify(recs.get_recommendations())
+    shuffle = request.args.get("shuffle") == "1"
+    return jsonify(recs.get_recommendations(shuffle=shuffle))
 
 
 @app.get("/api/positions/<wallet>")

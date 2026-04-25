@@ -31,19 +31,20 @@ _lock = threading.Lock()
 
 # ── Public API ──────────────────────────────────────────────────────────────
 
-def get_recommendations() -> list:
+def get_recommendations(shuffle: bool = False) -> list:
     """Return cached recommendations, recomputing if stale."""
     global _cache, _cache_ts
     with _lock:
         age = time.time() - _cache_ts
-        if _cache and age < CACHE_TTL:
+        if _cache and age < CACHE_TTL and not shuffle:
             return list(_cache)
 
-    result = _compute()
+    result = _compute(shuffle=shuffle)
 
-    with _lock:
-        _cache    = result
-        _cache_ts = time.time()
+    if not shuffle:
+        with _lock:
+            _cache    = result
+            _cache_ts = time.time()
 
     return result
 
@@ -57,18 +58,22 @@ def invalidate():
 
 # ── Engine ──────────────────────────────────────────────────────────────────
 
-def _compute() -> list:
+def _compute(shuffle: bool = False) -> list:
+    import random as _random
+
     tracked = {t["wallet"] for t in db.get_all_traders()}
     if not tracked:
         return []
 
-    slugs = db.get_recent_event_slugs(limit=25)
+    slugs = db.get_recent_event_slugs(limit=30)
     if not slugs:
         return []
 
     candidates: dict[str, dict] = {}
 
-    for slug in slugs[:12]:
+    sample = _random.sample(slugs, min(12, len(slugs))) if shuffle and len(slugs) > 4 else slugs[:12]
+
+    for slug in sample:
         try:
             r = requests.get(
                 "https://data-api.polymarket.com/trades",
@@ -140,5 +145,5 @@ def _compute() -> list:
 
     results.sort(key=lambda x: x["score"], reverse=True)
     log.info("Recommendations: %d candidates → returning top %d",
-             len(results), min(15, len(results)))
-    return results[:15]
+             len(results), min(30, len(results)))
+    return results[:30]

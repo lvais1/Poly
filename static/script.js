@@ -405,16 +405,16 @@ function renderDiscover() {
   if (!recommendations.length) {
     el.innerHTML = `
       <p class="empty-msg">No suggestions yet.<br>Add traders and let trades load first.</p>
-      <button class="btn-disc-refresh" onclick="loadDiscover()">&#8635; Try Again</button>`;
+      <button class="btn-disc-refresh" onclick="loadDiscover(true)">&#8635; Try Again</button>`;
     return;
   }
 
-  const trackedSet  = new Set(traders.map(t => t.wallet));
-  const filtered    = recommendations.filter(r => !trackedSet.has(r.wallet));
+  const trackedSet = new Set(traders.map(t => t.wallet));
+  const filtered   = recommendations.filter(r => !trackedSet.has(r.wallet));
 
   const toolbar = `<div class="discover-toolbar">
     <span class="discover-info">${filtered.length} trader${filtered.length !== 1 ? 's' : ''} found</span>
-    <button class="btn-disc-refresh" onclick="loadDiscover()" title="Refresh">&#8635; Refresh</button>
+    <button class="btn-disc-refresh" onclick="loadDiscover(true)" title="Shuffle for different results">&#8635; Shuffle</button>
   </div>`;
 
   const cards = filtered.map(r => {
@@ -423,43 +423,61 @@ function renderDiscover() {
     const url    = `https://polymarket.com/profile/${r.pseudonym || r.wallet}`;
     const ago    = r.last_ts ? timeAgo(r.last_ts) : '—';
 
+    const level = (() => {
+      if (!r.last_ts) return 'dormant';
+      const diff = Math.floor(Date.now() / 1000) - r.last_ts;
+      if (diff < 3600)   return 'hot';
+      if (diff < 86400)  return 'active';
+      if (diff < 604800) return 'recent';
+      return 'dormant';
+    })();
+
     return `
       <div class="rec-card">
         <div class="rec-top">
-          <img class="rec-avatar" src="${avatar}" alt=""
-               data-name="${escHtml(r.name || r.pseudonym || '')}" data-wallet="${r.wallet}"
-               onerror="imgError(this)"
-               onclick="openExternal('${escHtml(url)}')" title="View on Polymarket">
+          <div class="rec-avatar-wrap" onclick="openExternal('${escHtml(url)}')" title="View on Polymarket">
+            <img class="rec-avatar" src="${avatar}" alt=""
+                 data-name="${escHtml(r.name || r.pseudonym || '')}" data-wallet="${r.wallet}"
+                 onerror="imgError(this)">
+            <span class="rec-dot rec-dot-${level}"></span>
+          </div>
           <div class="rec-info">
-            <div class="rec-name"
-                 onclick="openExternal('${escHtml(url)}')"
-                 title="View on Polymarket">${escHtml(name)}</div>
+            <div class="rec-name-row">
+              <span class="rec-name"
+                   onclick="openExternal('${escHtml(url)}')"
+                   title="View on Polymarket">${escHtml(name)}</span>
+              <span class="activity-badge activity-${level}">${ACTIVITY_LABEL[level]}</span>
+            </div>
             ${r.pseudonym && r.pseudonym !== r.name
               ? `<div class="rec-pseudo">@${escHtml(r.pseudonym)}</div>` : ''}
+            <div class="rec-wallet-id">${shortWallet(r.wallet)}</div>
             <div class="rec-meta">
-              <span title="Shared markets">&#9783; ${r.shared_markets} shared</span>
+              <span title="Markets in common">&#9783; ${r.shared_markets} shared</span>
               <span class="act-sep">·</span>
-              <span>$${fmtUsd(r.volume)} vol</span>
+              <span>${r.trade_count.toLocaleString()} trades</span>
               <span class="act-sep">·</span>
-              <span>${ago}</span>
+              <span>$${fmtUsd(r.volume)}</span>
+              <span class="act-sep">·</span>
+              <span title="Last active">${ago}</span>
             </div>
           </div>
           <button class="btn-rec-add" onclick="addFromRec('${r.wallet}')"
                   title="Track this wallet">+</button>
         </div>
-        ${r.bio ? `<div class="rec-bio">${escHtml(r.bio.slice(0, 80))}${r.bio.length > 80 ? '…' : ''}</div>` : ''}
+        ${r.bio ? `<div class="rec-bio">${escHtml(r.bio.slice(0, 150))}${r.bio.length > 150 ? '…' : ''}</div>` : ''}
       </div>`;
   }).join('');
 
   el.innerHTML = toolbar + (cards || '<p class="empty-msg">All suggestions already tracked.</p>');
 }
 
-async function loadDiscover() {
+async function loadDiscover(shuffle = false) {
   if (discoverLoading) return;
   discoverLoading = true;
   renderDiscover();
   try {
-    const res    = await fetch('/api/recommendations');
+    const url    = shuffle ? '/api/recommendations?shuffle=1' : '/api/recommendations';
+    const res    = await fetch(url);
     recommendations = await res.json();
     discoverLoaded  = true;
   } catch (e) {

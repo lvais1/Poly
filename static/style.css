@@ -892,24 +892,55 @@ main {
 .rec-top {
   display: flex;
   align-items: flex-start;
-  gap: 9px;
+  gap: 10px;
+}
+
+/* Avatar wrap with status dot — mirrors trader card */
+.rec-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
 }
 
 .rec-avatar {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
   background: var(--border-mid);
-  flex-shrink: 0;
-  cursor: pointer;
+  display: block;
   transition: opacity 0.15s;
 }
 
-.rec-avatar:hover { opacity: 0.82; }
+.rec-avatar-wrap:hover .rec-avatar { opacity: 0.82; }
+
+.rec-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--panel2);
+}
+
+.rec-dot-hot     { background: #f97316; animation: dotPulse 1.8s ease-out infinite; }
+.rec-dot-active  { background: var(--buy); }
+.rec-dot-recent  { background: #eab308; }
+.rec-dot-dormant { background: #3a3a3a; }
 
 .rec-info {
   flex: 1;
+  min-width: 0;
+}
+
+/* Name + activity badge on same row */
+.rec-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -920,6 +951,8 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
+  flex: 1;
+  min-width: 0;
 }
 
 .rec-name:hover { color: var(--accent); text-decoration: underline; }
@@ -927,25 +960,34 @@ main {
 .rec-pseudo {
   font-size: 11px;
   color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.rec-wallet-id {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: #444;
+  font-size: 10px;
   margin-top: 1px;
+  letter-spacing: 0.02em;
 }
 
 .rec-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 5px;
-  margin-top: 3px;
+  margin-top: 4px;
   font-size: 11px;
   color: var(--text-muted);
 }
 
 .rec-bio {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 6px;
-  line-height: 1.4;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-top: 7px;
+  line-height: 1.45;
   border-top: 1px solid var(--border);
-  padding-top: 6px;
+  padding-top: 7px;
 }
 
 .btn-rec-add {

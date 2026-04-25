@@ -1,3 +1,4 @@
+import os
 import secrets
 import threading
 import time
@@ -24,11 +25,16 @@ app = Flask(__name__)
 # Stable secret key — generated once, persisted to .secret_key so sessions
 # survive app restarts.
 _KEY_FILE = Path(__file__).parent / ".secret_key"
-if _KEY_FILE.exists():
+if os.environ.get("SECRET_KEY"):
+    app.secret_key = os.environ["SECRET_KEY"]
+elif _KEY_FILE.exists():
     app.secret_key = _KEY_FILE.read_text().strip()
 else:
     app.secret_key = secrets.token_hex(32)
-    _KEY_FILE.write_text(app.secret_key)
+    try:
+        _KEY_FILE.write_text(app.secret_key)
+    except OSError:
+        pass
 
 app.config["PERMANENT_SESSION_LIFETIME"] = 60 * 60 * 24 * 365  # 1 year
 

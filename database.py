@@ -1,10 +1,11 @@
+import os
 import sqlite3
 import time
 import logging
 import contextlib
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "poly.db"
+DB_PATH = Path("/tmp/poly.db") if os.environ.get("VERCEL") else Path(__file__).parent / "poly.db"
 
 log = logging.getLogger(__name__)
 

@@ -59,6 +59,13 @@ header {
   white-space: nowrap;
 }
 
+.credit {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  opacity: 0.5;
+}
+
 .status-badge {
   font-size: 11px;
   color: var(--buy);

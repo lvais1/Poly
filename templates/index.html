@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poly Tracker</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <span class="logo">&#9670; POLY TRACKER</span>
+      <span id="status-badge" class="status-badge">&#9679; live</span>
+      <span id="last-updated"></span>
+    </div>
+    <div class="header-right">
+      <input id="wallet-input" type="text" placeholder="0x wallet address…" autocomplete="off" spellcheck="false">
+      <button id="btn-add">+ Add Trader</button>
+      <button id="btn-fetch" class="btn-secondary">&#8635; Fetch Now</button>
+
+      <!-- Sound controls -->
+      <div class="sound-controls">
+        <button id="btn-sound" class="btn-secondary btn-sound" title="Toggle sound">&#128266;</button>
+        <div class="sound-panel" id="sound-panel">
+          <div class="sound-panel-title">Sound Settings</div>
+
+          <div class="sound-row">
+            <label class="sound-label">Enabled</label>
+            <label class="toggle">
+              <input type="checkbox" id="sound-enabled" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="sound-row">
+            <label class="sound-label">Volume</label>
+            <input type="range" id="sound-volume" min="0" max="100" value="60" class="sound-slider">
+            <span id="sound-volume-val" class="sound-val">60%</span>
+          </div>
+
+          <div class="sound-divider"></div>
+          <div class="sound-panel-sub">Per trade type</div>
+
+          <div class="sound-row">
+            <label class="sound-label buy-label">BUY</label>
+            <label class="toggle">
+              <input type="checkbox" id="sound-buy" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="range" id="sound-buy-pitch" min="400" max="1200" value="880" class="sound-slider">
+            <button class="btn-preview" onclick="previewSound('BUY')">&#9654;</button>
+          </div>
+
+          <div class="sound-row">
+            <label class="sound-label sell-label">SELL</label>
+            <label class="toggle">
+              <input type="checkbox" id="sound-sell" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="range" id="sound-sell-pitch" min="200" max="900" value="520" class="sound-slider">
+            <button class="btn-preview" onclick="previewSound('SELL')">&#9654;</button>
+          </div>
+
+          <div class="sound-row" style="margin-top:6px">
+            <label class="sound-label">Duration</label>
+            <input type="range" id="sound-duration" min="50" max="600" value="200" class="sound-slider">
+            <span id="sound-duration-val" class="sound-val">200ms</span>
+          </div>
+
+          <div class="sound-row">
+            <label class="sound-label">Waveform</label>
+            <select id="sound-wave" class="sound-select">
+              <option value="sine">Sine</option>
+              <option value="triangle">Triangle</option>
+              <option value="square">Square</option>
+              <option value="sawtooth">Sawtooth</option>
+            </select>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <main>
+    <!-- LEFT: traders + discover -->
+    <aside id="traders-panel">
+
+      <!-- Panel tabs -->
+      <div class="panel-tabs-row">
+        <button class="panel-tab active" data-tab="tracked">
+          Tracked <span id="trader-count" class="count-badge">0</span>
+        </button>
+        <button class="panel-tab" data-tab="discover" id="btn-discover-tab">
+          Discover
+        </button>
+      </div>
+
+      <!-- Tracked traders list -->
+      <div id="traders-list" class="left-pane active">
+        <p class="empty-msg">No traders tracked yet.<br>Add a wallet address above.</p>
+      </div>
+
+      <!-- Discover / Recommendations list -->
+      <div id="discover-list" class="left-pane">
+        <p class="empty-msg">Click Discover to find traders<br>active in the same markets.</p>
+      </div>
+
+    </aside>
+
+    <!-- RIGHT: trades + positions -->
+    <section id="trades-panel">
+      <div class="trades-toolbar">
+
+        <!-- Right-side view tabs -->
+        <div class="right-tabs">
+          <button class="right-tab active" data-rtab="trades">Trades</button>
+          <button class="right-tab" data-rtab="positions" id="btn-positions-tab" style="display:none">
+            Positions
+          </button>
+        </div>
+
+        <select id="filter-wallet" title="Filter by trader">
+          <option value="">All Traders</option>
+        </select>
+        <div class="side-filters">
+          <button class="filter-btn active" data-side="">All</button>
+          <button class="filter-btn buy-btn" data-side="BUY">BUY</button>
+          <button class="filter-btn sell-btn" data-side="SELL">SELL</button>
+        </div>
+        <span id="trade-count" class="count-badge" style="margin-left:auto">0 trades</span>
+      </div>
+
+      <!-- Trades view -->
+      <div id="trades-list" class="right-pane active">
+        <p class="empty-msg">Trades will appear here once you add a trader.</p>
+      </div>
+
+      <!-- Positions view -->
+      <div id="positions-list" class="right-pane">
+        <p class="empty-msg" id="positions-empty">Select a trader to see their open positions.</p>
+      </div>
+
+    </section>
+  </main>
+
+  <div id="toast"></div>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+# Python environments
+.venv/
+.venv312/
+__pycache__/
+*.pyc
+*.pyo
+
+# Database (local data, not committed)
+poly.db
+poly.db-shm
+poly.db-wal
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

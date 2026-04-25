@@ -477,8 +477,9 @@ async function loadDiscover(shuffle = false) {
   renderDiscover();
   try {
     const url    = shuffle ? '/api/recommendations?shuffle=1' : '/api/recommendations';
-    const res    = await fetch(url);
-    recommendations = await res.json();
+    const res  = await fetch(url);
+    const data = await res.json();
+    recommendations = Array.isArray(data) ? data : [];
     discoverLoaded  = true;
   } catch (e) {
     recommendations = [];
@@ -489,12 +490,18 @@ async function loadDiscover(shuffle = false) {
 }
 
 async function addFromRec(wallet) {
-  const res  = await fetch('/api/traders', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ wallet }),
-  });
-  const data = await res.json();
+  let data;
+  try {
+    const res = await fetch('/api/traders', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ wallet }),
+    });
+    data = await res.json();
+  } catch (e) {
+    showToast('Network error — please try again');
+    return;
+  }
   if (data.status === 'added') {
     showToast('Trader added — fetching trades…');
     setTimeout(refresh, 2500);
@@ -600,20 +607,36 @@ function switchRightTab(tab) {
 // ── Data fetching ──────────────────────────────────────────────────────────
 
 async function loadTraders() {
-  const res = await fetch('/api/traders');
-  traders   = await res.json();
+  try {
+    const res = await fetch('/api/traders');
+    if (!res.ok) throw new Error(res.status);
+    traders = await res.json();
+  } catch (e) {
+    console.error('loadTraders failed:', e);
+  }
   renderTraders();
   rebuildWalletFilter();
 }
 
 async function loadStats() {
-  const res = await fetch('/api/stats');
-  stats     = await res.json();
+  try {
+    const res = await fetch('/api/stats');
+    if (!res.ok) throw new Error(res.status);
+    stats = await res.json();
+  } catch (e) {
+    console.error('loadStats failed:', e);
+  }
 }
 
 async function loadTrades() {
-  const res       = await fetch('/api/trades?limit=500');
-  const freshData = await res.json();
+  let freshData = [];
+  try {
+    const res = await fetch('/api/trades?limit=500');
+    if (!res.ok) throw new Error(res.status);
+    freshData = await res.json();
+  } catch (e) {
+    console.error('loadTrades failed:', e);
+  }
 
   const newHashes = new Set();
   for (const t of freshData) {
@@ -685,15 +708,15 @@ async function addTrader() {
     if (!res.ok) {
       showToast(data.error || 'Error adding trader');
     } else if (data.status === 'added') {
-      showToast('Trader added — fetching profile & trades…');
+      showToast('Trader added!');
       input.value = '';
-      setTimeout(refresh, 2000);
-      setTimeout(refresh, 5000);
-      setTimeout(refresh, 12000);
+      await loadTraders();
+      await Promise.all([loadTrades(), loadStats()]);
+      renderTraders();
     } else {
       showToast('Already tracking this wallet');
+      await loadTraders();
     }
-    await loadTraders();
   } finally {
     btn.textContent = '+ Add Trader';
     btn.disabled = false;
